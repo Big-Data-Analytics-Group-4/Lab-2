@@ -1,0 +1,576 @@
+---
+title: "Bank Marketing Analysis"
+author: "Alok Ranchal, Mohamed Mustafa, Jonelle Mars, Yaryna Borys"
+date: "24-April-2020"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+# Abstract
+This paper analyzes direct marketing campaigns data of a Portuguese bank. Using the CRISP-DM methodology goal is to predict whether the bank client will subscribe a term deposit. This is a classification type problem and multiple techniques were explored to develop a model that would help banks build better customer relationship  and avoid financial risks.
+
+# Introduction
+Direct marketing is a popular method that has been used by banks for a very long time to attract new business. Banks employ teams who build strategies on how to best target the right customers in order to minimize campaign costs and maximise returns. The pressure of ever changing economic conditions, cost of doing business and vast competition within the banking industry has led banks to re-strategize and invest in a strict targeted selection of prospective clients. Data Mining and Business Intelligence offer modern techniques that fit the need of the industry to execute such projects (Moro et al., 2011). This paper aims to analyze real direct marketing data collected by a Portuguese Bank using data mining techniques and CRISP-DM methodology in order to predict which customer is most likely to subscribe to a term deposit offered by the bank though a tele-marketing campaign.
+
+CRISP-DM methodology is the industry standard for data mining. Using this methodology the bank marketing dataset will be acutely analyzed through steps of Business Understanding, Data Understanding, Data Preparation, Modeling, Evaluation and finally aim at deployment. By utilizing this cyclic process iterations can be reviewed and modified to allow best possible results to achieve desired business objectives (Moro et al., 2011)
+Investment management is a growingly saturated sector, in 2010 it was reported to be a $117 trillion industry and growing (Maslakovic, 2011). The continued saturation is not only due to the greater number of investment services offered by banks, but also the increasing number of financial companies. Banks and investment companies, both brick and mortar and online, continue to diversify and specialize respectively giving consumers endless options. To combat the industry’s saturation, marketing is essential to increase revenue whether through new customer acquisition, or retention via broadening current portfolios. Before deploying resources into marketing term deposits to customers, it is most effective to identify the demographic to target.
+
+# Background
+The data outlines the details of direct tele-marketing campaigns of a Portuguese bank. Based on the data attributes this study can be viewed as a binary classification problem. The two output classes are divided into clients who agreed to subscribe and clients who denied the offer.
+
+The exploratory data analysis revealed a high class imbalance of the target variable, with "no" being the majority class. Considering the main goal of this project is to predict success rate of the term deposit subscriptions, SMOTE technique was used to balance the data and improve the results.
+
+For the purpose of achieving optimal data modelling performance, three classification techniques were explored for the study of this data - Logistic Regression, K-nearest Neighbours (KNN) and Classification & Regression Tree (CART).
+
+# Objective
+The objective of this study is to predict which clients of the Portuguese Bank are more likely to positively respond to a tele-marketing campaign offering a subscription to a term deposit.
+
+# Data Exploration and Cleanup
+This dataset is publically available from **[UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/Bank+Marketing#)**. There are four versions of this dataset available, but for the purpose of this study, "bank-full.csv" was selected. The data consists of direct marketing campaigns data based on phone calls of a Portuguese financial institution. It consists of 45,211 instances and 17 attributes. There are 16 input variables of which 6 are continuous and 10 are categorical. The attributes information is listed below:
+
+| Input variable details | 
+----|--------------|--------
+1 - | Client's age | (age)
+2 - | Clentts's occupation | (job)
+3 - | Marital status | (marital)
+4 - | Educatio level | (education)
+5 - | Credit default | (default)
+6 - | Average annual accoutn balance | (balance)
+7 - | Housing loan | (housing)
+8 - | Personal loan | (loan)
+9 - | Contact commnication type | (contact)
+10 - | Last contact day | (day)
+11 - | Last contact month | (month)
+12 - | Duration in seconds of the last contact | (duration)
+13 - | Number of contacts performed during this campaign | (campaign)
+14 - | Number of days passed after last contat  | (pdays)
+15 - | Number of contacts performed before this campaign | (previous)
+16 - | Outcome of previous marketing campaign | (poutcome)
+
+| Output variable details | 
+----|--------------|--------
+17 - | Has the client subscribed to a term deposit? "yes" or "no" | (y)
+
+As part of data understanding and developing a prediction model later on in the process, data analysis would be done using RStudio and following R packages would needed to be installed and loaded.
+
+Load R packages
+```{r setup, include=FALSE}
+library(tidyverse)
+library(corrplot)
+library(caTools) 
+library(caret)
+library(DMwR)
+library(ROCR)
+library(pROC)
+library(descr) 
+library(rpart)
+library(rpart.plot) 
+library(knitr)
+library(kableExtra)
+library(xtable)
+library(rmarkdown)
+library(ggplot2)
+```
+   |R Libraries |
+---|-------------|--
+| library(tidyverse) | |
+| library(rmarkdown) | | 
+| library(corrplot)  | # correlation plot |
+| library(DMwR)      | # for K-Nearest Neighbours Imputation |
+| library(caTools)   | # for test train split |
+| library(caret)     | # for modelling |
+| library(ROCR)      | # for rocr analysis | 
+| library(pROC)      | # for train KNN | 
+| library(descr)     | # formatting |
+| library(rpart)     | # decision tree |
+| library(rpart.plot)| # decision tree plotting |
+| library(knitr)     | # for formatting and file output control |
+| library(kableExtra)| # table formatting |
+| library(xtable)    | # generate tables |
+| library(rmarkdown) |  |
+| library(ggplot2)  | # for creating visuals |
+
+## Reading the dataset
+The data set was loaded into R using the following code:
+```{r}
+bankData <- read.csv("bank-full.csv", sep=";", na.strings = ("unknown"))
+```
+
+## Preview of the data
+
+Visual represetation of the first rows of the dataset is displayed by Table 3.
+```{r, echo=FALSE, tidy=TRUE}
+bankData <- read.csv("bank-full.csv", sep=";", na.strings = ("unknown"))
+```
+```{r, echo=FALSE, tidy=TRUE}
+kable(bankData[1:5,], format="latex", booktabs=TRUE, caption = "Bank Marketing Dataset - first rows") %>% 
+kable_styling(font_size=4,latex_options="hold_position")
+```
+## Data Summary
+
+Additional detail on the data set is represented below.
+
+
+```{r, tidy=TRUE}
+summary(bankData)
+```
+There are a number of missing values in this dataset. Though, the outcome varibale doesn't have any missing value, but some categorical variables have missing values - job (288), education (1,857), contact (13,020) and poutcome (36,959).
+```{r , tidy=TRUE}
+colSums(is.na(bankData))
+```
+
+# Data Visualization
+
+The target variable shows significant level of imbalance, with "no" being the majority class. Target variable distribution stands at approximately 88.3% negative response and only 11.7% positive response. This may be due to a low response, as some of the customers were out of reach, declined the calls, or were not interested in term deposit offer. The model results will be affected because of this disproprtionate representation in the response class. Hence we would need to balance the dataset in order to have better proportions of “no” and “yes” in the binary response class.
+
+Below is a visual representation of the target variable distribution.
+```{r}
+bankData %>% ggplot(aes(x = y,fill = y)) + geom_bar() + labs(x = "Outcome", y = "Number") + geom_text(aes(label = ..count..),stat = "count", position = position_stack(0.5))
+
+table(bankData$y)/nrow(bankData)*100
+```
+## Input Variables
+
+There are 16 input variables of which 6 are continuous and 10 are categorical
+
+### Continuous Variables
+
+**Client's Age**
+
+Although the dataset is unbalanced, we can still see some changes in the distribution of "yes" and "no" in seniors.
+
+```{r}
+bankData %>% ggplot(aes(x=age,fill=y))+geom_histogram(binwidth = 5)
+```
+
+The visualization below  clearly displays that after around the age of 60 , the success of the marketing campaign (probability of 'yes') increases, however this may be due to the fact that number of instances at an overall level also decrease at higher ages.
+
+```{r}
+bankData %>% ggplot(aes(x=age,fill=y))+geom_bar(position="fill")
+```
+
+**Average Annual Balance**
+
+Refering to the visualization below, we cannot infer any difference between "yes" and "no" outcomes in relation to the annual balances held by the customers of the bank.
+
+```{r}
+bankData %>% ggplot(aes(x=balance,fill=y))+geom_histogram()
+```
+
+**Duration**
+
+What is observed from the visualizatio below is that longer the duration, higher is the probability of customer subscribing to the term deposit offer. However, it is worth mentioning, that both duration and outcome would only be known after the call is complete. If we use this variable during the model building process, the model is likely to have high accuracy but would not be uselful for practical predictive purposes. Considering this, we should not include this variable during the model buidling.
+
+```{r}
+ggplot(bankData, aes(x=y, duration)) + geom_boxplot(aes(fill = y))
+```
+
+**Number of contacts performed during this campaign and for this customer**
+
+Analyzing the histograms below, "No"s have a long tail which may indicate that the number of contacts beyond a limit would mean customer is not inteested in the term deposit.
+
+```{r, echo}
+bankData %>% filter(y=="no") %>% ggplot(aes(x=campaign,fill=y))+geom_histogram()
+bankData %>% filter(y=="yes") %>% ggplot(aes(x=campaign,fill=y))+geom_histogram()
+```
+
+**Number of contacts performed before this campaign and for this customer**
+
+Analyzing the histograms below, we cannot infer any difference between "yes" and "no" w.r.t.number of contacts made before this campaign
+```{r}
+bankData %>% ggplot(aes(x=previous,fill=y))+geom_bar(position = "fill")
+```
+
+**Number of days that passed by after the client was last contacted from a previous campaign**
+
+Analyzing the histograms below, we cannot infer any difference between "yes" and "no" w.r.t.number of days passed since last contact
+```{r}
+bankData %>% ggplot(aes(x=pdays,fill=y))+geom_bar(position = "fill")
+```
+
+**Correlation matrix**
+
+Correlations are not observably significant. But there seems to be some correlation between `previous` and `pdays` i.e. number of contacts made before this campaign and number of days passed since last contact.
+```{r}
+bankData.cont=bankData[c('age','balance','duration','campaign','pdays','previous')]
+correlation <- cor(bankData.cont)
+corrplot(correlation,method="number")
+```
+
+### Categorical Variables
+
+**Occupation**
+
+The type of occupation bank clients have seem to have influence over the decision making in relation to the campaign marketing offer.
+```{r}
+bankData %>% ggplot(aes(x=job,fill=y))+geom_bar(position="fill")
+```
+However, it is worth mentioning that 0.64% of instances have missing values for job variable.
+```{r}
+table(is.na(bankData$job))/nrow(bankData)*100
+```
+
+**Marital Status**
+
+Married clients have higher probability of declining the term deposit offer.
+```{r}
+bankData %>% ggplot(aes(x=y,fill=marital))+geom_bar(position="fill")
+```
+
+**Education**
+
+If Primary is the lowest level of education and Tertiary is the highest level, then the probaility of customers accepting the term deposit increases with increase in education.
+```{r}
+bankData %>% ggplot(aes(x=education,fill=y))+geom_bar(position = "fill")
+```
+It is also observed that 4.1% of instances have missing values for eductaion.
+```{r}
+table(is.na(bankData$education))/nrow(bankData)*100
+```
+
+**Credit in Default**
+
+Majority of the clients in the sample do not have debt in default. Considering this, default cannot be treated as an important factor.
+```{r}
+bankData %>% ggplot(aes(x=default,fill=y))+geom_bar()
+```
+
+**Housing Loan**
+
+A relationship can be observed in the visualization below. People with housing loan are less interested in subscribing to a term deposit.
+```{r}
+bankData %>% ggplot(aes(x=y,fill=housing))+geom_bar(position = "fill")
+```
+
+**Personal Loan**
+There is no observable evidence of a strong relationship relating to this variable and the outcome.
+```{r}
+bankData %>% ggplot(aes(x=y,fill=loan))+geom_bar(position = "fill")
+```
+
+**Contact Communication Type**
+28.8% of values in this variable are missing. Hence, putting these into a different level may be a good option to improve results.
+```{r}
+bankData %>% ggplot(aes(x=y,fill=contact))+geom_bar(position = "fill")
+```
+```{r, echo=FALSE}
+table(is.na(bankData$contact))/nrow(bankData)*100
+```
+
+**Last Contact Day**
+
+The marketing campaign outcome seems to be influenced by the last day the client is contacted.
+```{r}
+bankData %>% ggplot(aes(x=day,fill=y))+geom_bar(position = "fill")
+```
+
+**Last Contact Month**
+
+The decision seems to be more positive in March, September, October and December.
+```{r}
+bankData$month <- factor(bankData$month,levels = c("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec")) #Arranged the Months in order
+bankData %>% ggplot(aes(x=month,fill=y))+geom_bar(position = "fill")
+```
+
+**Outcome of the previous marketing campaign**
+
+Based on visual presented below, the relationship between positive outcomes of the previous marketing campaign seem to have positive effect on the current marketing capaign. People who subscribed to term deposit in the past are likely to be interested in the product in the future.
+```{r}
+bankData %>% ggplot(aes(x=poutcome,fill=y))+geom_bar(position = "fill")
+bankData %>% ggplot(aes(x=y,fill=poutcome))+geom_bar(position = "fill")
+```
+Among the categories represented in this variable NA is the biggest one (81.7%). For the purpose of impoving the results NA can be combined with other categories.
+```{r}
+table(is.na(bankData$poutcome))/nrow(bankData)*100
+```
+
+# Data Preparation
+Data preparation is an essential task for that data analysis process. Ensuring that accurate and a quality data structure is used to feed the model is a base to good analytics, as using incorrect data is likely to result in inaccurate results.The following tasks were performed in the data preparation process of this study:
+
+- Data set has been scanned for the missing values
+
+- Data set has been scanned for 'unknown' values
+
+## Treating Missing Values
+
+Data set contained unknown or N/A values in different columns.Based on the observations it was agreed that removing rows with missing values would impact the model building in a negative way as the dataset is already imbalanced. To deal with this issue, we used two methods:
+a) Assigned explicit factor level for number of values. In particular, 39,959 missing values for the **poutcome** variable were leveled by combining with `other` category. The 13,020 missing values in **contact** variable were also treated by adding an explicit factor level using `fct_explicit_na` function available in the `tidyverse` package.
+
+```{r, echo=FALSE}
+kable(colSums(is.na(bankData)), format="latex", booktabs=TRUE, caption = "Bank Marketing Dataset missing values") %>% 
+kable_styling(latex_options="hold_position")
+```
+```{r}
+bankData.cleaned <- bankData
+bankData.cleaned$poutcome = fct_explicit_na(bankData.cleaned$poutcome, "other") 
+bankData.cleaned$contact = fct_explicit_na(bankData.cleaned$contact, "unknown")
+bankData.cleaned %>% ggplot(aes(x=poutcome,fill=y))+geom_bar(position = "fill")+ guides(fill=guide_legend(title="Poutcome after missing values treatment"))
+```
+```{r, echo=FALSE}
+colSums(is.na(bankData.cleaned))
+```
+
+b) Using **K-Nearset Neighbours** missing values in `job`and `education` variables were imputed to improve the results.
+```{r}
+bankData.cleaned <- knnImputation(bankData.cleaned)
+colSums(is.na(bankData.cleaned))
+```
+```{r}
+summary(bankData.cleaned)
+```
+
+## Splitting data into **Train** and **Test**
+
+The data was split into test and train set, with 80% data in train and 20% test.
+```{r}
+set.seed(35) 
+
+splitParam = sample.split(bankData.cleaned$y,SplitRatio = 0.80)
+
+bankTraining = bankData.cleaned[splitParam,] 
+bankTesting = bankData.cleaned[!splitParam,]
+
+nrow(bankTraining)
+nrow(bankTesting)
+```
+To ensure that the outcome of ("yes" - "no") ratio is similar for both `test` and `train`, following probability table for `Test` and `Train` data was made:
+```{r}
+prop.table(table(bankTraining$y))
+prop.table(table(bankTesting$y))
+```
+
+## Scaling the continuous variables
+Cosidering difference in magnitude/ scale in varibles has been observed earlier in the process, it became evident that scaling the data would benefit the process and likely result in better performance. Scailing has been done post `Test` and  `Train` data split to eliminate a possibility of a biased estimation. The `preProcess` R function from `caret` package was used for scaling.
+```{r}
+scaleParam <- preProcess(bankTraining, method = c("center", "scale")) 
+scaled.training <- predict(scaleParam, bankTraining)
+scaled.testing <- predict(scaleParam, bankTesting)
+```
+
+## Applying SMOTE method to Scaled Training Set
+To ensure better results, the highly scewed `y` variable, balancing is necessary (Chawla et. al. 2002). The `y` variable distribution shows a lot of non-subscribers at approximately 88.3% and only 11.7% subscribers.This method artificially generates new examples of the minority class using the nearest neighbours and the majority class is also undersampled. Accordingly, the SMOTE has been utilized to oversample minority value in dependent variable and undersample majority value.
+```{r}
+balanced.bankData <- SMOTE(y ~., scaled.training,k=5, perc.over = 30, perc.under = 470)
+summary(balanced.bankData$y)
+```
+The total number of instances has thus been reduced to 11,464. As the number of instances with 'yes' were too small in original dataset, it was better to not oversample positive outcome too much in order to avoid issues relating to data integrity and bias.
+
+Next step to our data analysis was predictive modelling. As this was a classification problem, we followed three modelling techniques to evaluate and choose the best model. These were:
+•	Logistic Regression
+•	K- Nearest Neighbors
+•	Classification and Regression Trees
+
+# Logistic Regression Modeling
+
+Logistic Regression is a popularly utilized classification method in data mining. Considering our target variable is in the binary form "yes" or "no", logistic regression was used to test the target variable against the other categorical and continuous variable predictors.
+
+a)	Logistic Regression without Cross Validation***[Saraswat, Manish](https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/logistic-regression-analysis-r/tutorial/)***
+As duration and outcome (y) of a call are not known before a call, duration should not be used as a predictor in the model. Also, we had noticed during the data exploration phase, that majority of the customers had no default, so we should not include this variable as well.
+```{r }
+logisticsModel <- glm(y ~ ., family = binomial(link = 'logit'), data = balanced.bankData[,!names(balanced.bankData) %in% c("duration","default")])
+
+summary(logisticsModel)
+```
+GLM function has been used for Logistic Regression model and 'logit' represents link for logistic regression. Estimates repesent the regression coefficients that explain the change in log(odds) of the outcome or response variable. Standrad error is the standard error associated with regression coefficents. Z-value, p-value and stars represent if the predictor variable is significant. Z should be greater than 2 or less than -2, p-value should be less than 0.05 and number of stars should be 1 or more for 95% confidence level for predictor variable.
+
+The model has an AIC (Akaike information criterion) of 13131, which is an estimator of out-of-sample prediction error and helps us choose a better model. The lower the value of AIC, the better it is.
+
+These results suggest that there are some predictors which are not significant. To find out whether we can drop any of them before resunning the model, let us run Chi-Squared Test on the model.
+```{r}
+anova(logisticsModel, test = 'Chisq')
+```
+Chi-Squared shows that "loan" has p-value greater than 0.05 and hence this should be dropped from the model.
+```{r}
+logisticsModel <- glm(y ~ ., family = binomial(link = 'logit'), data = balanced.bankData[,!names(balanced.bankData) %in% c("duration","default","loan")])
+summary(logisticsModel)
+```
+The AIC for this model increased slightly to 13141 but it is a better model as we have lesser predictors with slight increase in AIC.
+
+# Model Validation
+We had earlier split the data into training and testing sets. Model performance can be evaluated by testing it on testing set.
+```{r}
+lmPredict <- predict(logisticsModel,newdata = scaled.testing,type = "response")
+```
+As this model outputs probaility, we would set a threshold value of 0.5 for positive and negative outcome.
+```{r}
+lmPredict <- ifelse(lmPredict > 0.5,1,0)
+```
+We would use AUC-ROC score to evealuate the model and will check accuracy using confusion matrix.
+```{r}
+lmval <- prediction(lmPredict,scaled.testing$y)
+
+logitplot <- performance(lmval,measure = "tpr",x.measure = "fpr") 
+```
+**Area under the curve**
+```{r}
+
+plot(logitplot) #AUC Curve
+
+auc(scaled.testing$y,lmPredict) # Area under the curve
+```
+AUC or Area under the curve is 0.7061. The higher the value the better it is. Looking at the plot, we see that the top left corner is away from y axis and hence the model is predicting more negatives incorrectly. This can also be proved by looking at sensitivity (True Positive Rate) and Specificity (True Negative Rate)
+
+**Confusion Matrix**
+```{r}
+boundary <- 0.5
+lmPredicted <- ifelse(predict(logisticsModel,type="response",newdata = scaled.testing)>boundary,"yes","no")
+lmActual <- scaled.testing$y
+matrixConfusion<-table(lmPredicted,lmActual) #Confusion Matrix
+matrixConfusion
+sensitivity(matrixConfusion)
+specificity(matrixConfusion)
+```
+
+As seen in the results, Specificity is lower than Sensitivity which means True Negative Rate is lower.
+Summary of results:
+- AUC = 0.6567
+- Sensitivity = 0.8111
+- Specificity = 0.6011
+
+For this business, Sensitivity seems to be more important as we would like to maximize True Positives and customer contacts.
+
+b)	Logistics Regression with K-Fold Cross Validation ***[Stackoverflow](https://stackoverflow.com/questions/39550118/cross-validation-function-for-logistic-regression-in-r)******[Mathew Analytics](https://www.r-bloggers.com/evaluating-logistic-regression-models/)***
+Another method of running Logistic Regression is by using K-Fold Cross Valiation. This method also helps in avoiding overfitting. In this method, the data is split into k chunks. One chunk is left out for testing and rest of the data is used for training the model. There are k iterations and the accuracy of each model for every iteration tracked and an overall accuracy is determined. Cross Validation method "cv" has been used for this model and value of k (number of folds) is 10.
+```{R}
+lmPredict2 <- train(y ~ ., data = balanced.bankData[,!names(balanced.bankData) %in% c("duration","default")], method = "glm", family="binomial", maximize = TRUE, trControl = trainControl(method = "cv", number = 10))
+
+lmPredicted2 <- predict(lmPredict2 , newdata = scaled.testing[,!names(scaled.testing) %in% c("duration","default")])
+
+summary(lmPredicted2)
+```
+The results of the model can be interpretted by looking at the "Estimate" and "Pr(|z|)". As discussed earlier, the variables with p-value greater than 0.05 are mot significant. The Estimates represents the coefficents which gets mutiplied with the change in their respective variables and sum of teh whole term is equal to change in log of odds of the outcome or reponse variable.
+
+The model is evaluated through a confusion matrix to find out accuracy, sensitivity (true positive rate) and specificity (true negative rate) **[RPubs](https://rpubs.com/fabiorocha5150/decisiontreemodel)**
+```{R}
+confusionMatrix(lmPredicted2 , scaled.testing$y) #Confusion matrix
+
+CrossTable(scaled.testing$y, lmPredicted2, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE, dnn = c('Actual', 'Predicted'))
+```
+As seen, in the results Specificity is lower than Sensitivity which means True Negative Rate is lower.
+Summary of results:
+- Accuracy = 0.7829
+- Sensitivity = 0.8075
+- Specificity = 0.0.5974
+- Balanced Accuarcy = 0.7024
+
+Accuracy = (True Positive + True Negative) / (True Positive + True Negative + False Postive + False Negative)**[rdrr.io](https://rdrr.io/cran/caret/man/confusionMatrix.html)**
+Sensitivity = True Positive / (True Positive + False Negative)
+Specificity = True Negative / (False Positive + True Negative)
+Balanced Accuracy = (Sensitivity + Specificity) / 2
+
+# K-Nearest Neighbours with K-fold Cross Validation
+This is another useful supervised learning modelling technique which we can use for classification problems. It classifies a new data point into a target class based on features of its neighbouring data points. K is the number of neighbours which the model will select. We will use cross-validation in this model to get a more accurate model with overfitting.
+```{R}
+knnModel <- train(y ~ ., data = balanced.bankData[,!names(balanced.bankData) %in% c("duration","default")], method = "knn", maximize = TRUE, trControl = trainControl(method = "cv", number = 10))
+#"cv" is cross validation method and k is number of folds (10 in this case)
+summary(knnModel)
+```
+Let us try to interpret this model
+```{R}
+plot(knnModel)
+knnModel
+```
+We had set k of k-cross validation as 10. So, this model was iterated 10 times with 5, 7 and 9 neighbours and it was found that accuracy was highest at k=9 neighbors. Please note k of k-fold cross- validation and k nearest neighbours are different.
+
+The model has been evaluated using confusion matrix to find out accuracy, sensitivity (true positive rate) and specificity (true negative rate).**[Edureka](https://www.edureka.co/blog/knn-algorithm-in-r/)**
+```{R}
+knnmPredict <- predict(knnModel , newdata = scaled.testing[,!names(scaled.testing) %in% c("duration","default")])
+confusionMatrix(knnmPredict , scaled.testing$y)
+CrossTable(scaled.testing$y, knnmPredict, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+                    dnn = c('Actual', 'Predicted'))
+```
+Summary of results:
+- Accuracy = 0.7968
+- Sensitivity = 0.8310
+- Specificity = 0.0.5388
+- Balanced Accuarcy = 0.6849
+
+
+##Classification and Regression Trees
+
+This is another useful supervised learning modelling technique which we can use for classification problems. It has three steps:**[Quick-R](https://www.statmethods.net/advstats/cart.html)**
+Grow the tree i.e. build the model
+Examine the results
+Prune the tree
+
+Grow the tree:
+```{R CART}
+cartModel<-rpart(y ~ ., balanced.bankData[,!names(balanced.bankData) %in% c("duration","default")], method = 'class', model = TRUE)
+par(mfrow=c(1,1))
+rpart.plot(cartModel) #Plot the decision tree
+```
+The decision tree considers pdays, month, contact, age and poutcome as important and these variables are in the nodes for decision making. Let us evaluate the model now by prunning the tree.
+
+Prune the tree:
+In this process, we will prun the tree i.e. try to remove any unnecessary nodes. We will do this by validating the model using Complexity Parameter.
+```{R}
+printcp(cartModel) #cp is complexity parameter
+plotcp(cartModel) 
+rsq.rpart(cartModel)
+```
+To prune, we will choose cp value with lowest xerror. The value of cp with least xerror is 0.01 at 8 splits
+```{R}
+pcartModel <- prune(cartModel, cp=0.01)
+rpart.plot(pcartModel)
+```
+No change in the tree means the prunning did not reduce the number of nodes.
+Let us measure the accuracy of the model.
+```{R}
+cartmPredict <- predict(pcartModel , scaled.testing[,!names(scaled.testing) %in% c("duration","default")] , type = "class") #use type = class for classification problems
+confusionMatrix(cartmPredict , scaled.testing$y)
+CrossTable(scaled.testing$y, cartmPredict, prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('Actual', 'Predicted'))
+```
+Summary of results:
+- Accuracy = 0.8228
+- Sensitivity = 0.8627
+- Specificity = 0.0.5217
+- Balanced Accuarcy = 0.6922
+
+# Conclusion
+
+We followed the CRISP-DM methodology to undertake data mining on Bank Direct Marketing dataset. Three different machine learning techniques were used with K-fold Cross Validation to generate a predictive model which would classify the prospective customers into two classes – Customers who would accept the Term Deposit subscription offer and the Customers who would decline the offer. Treating missing values, scaling the test and training sets and balancing this unbalanced training dataset using SMOTE,  were extremely important as it helped create better models.
+
+For machine learning, Logistic Regression was first applied on the dataset which predicted the results with a balanced accuracy of 70.24%.
+
+Secondly, K-Nearest Neighbours was used that predicted the results with a balanced accuracy of 68.49%
+
+At last, we used Classification and Regression Tree (CART) which predicted the results with a balanced accuracy of 69.22%
+
+Though the balanced accuracies of all three models are similar, Logistic Regression seems to be best model, as it has the maximum balanced accuracy out of the three models. Balanced Accuracy is a good measure for comparison as takes into account both sensitivity and specificity.
+
+Also, through this analysis it was found that age, contact, month, pdays and poutcome are the factors which drive classification that whether the customer is expected to accept the subscription offer for term deposit or not.
+
+# References
+
+[Moro et al., 2011] S. Moro, R. Laureano and P. Cortez. Using Data Mining for Bank Direct Marketing: An Application of the CRISP-DM Methodology. In P. Novais et al. (Eds.), Proceedings of the European Simulation and Modelling Conference - ESM'2011, pp. 117-121, Guimarães, Portugal, October, 2011. EUROSIS: vailable at:[http://hdl.handle.net/1822/14838]
+ 
+Chapman, P., Clinton, J., Kerber, R., Khabaza, T., Reinartz, T., Shearer, C. and Wirth, R. 2000. CRISP-DM 1.0 - Step-by-step data mining guide, CRISP-DM Consortium. Available at: [https://www.the-modeling-agency.com/crisp-dm.pdf]
+
+Marko Maslakovic (2011). The City UK. Financial Market Series: Fund Management.Available at: [https://web.archive.org/web/20120329131813/http://www.thecityuk.com/assets/Uploads/Fund-Management-2011.pdf]
+
+Chen, James. (2020, March 16). Term Deposits. Investopedia.Available at: [https://www.investopedia.com/terms/t/termdeposit.asp]
+
+Saraswat, Manish. Practical Guide to Logistic Regression Analysis in R Tutorials & Notes | Machine Learning | HackerEarth.Available at:
+https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/logistic-regression-analysis-r/tutorial/
+
+Machine learning - Cross Validation function for logistic regression in R - Stack Overflow.Available at: https://stackoverflow.com/questions/39550118/cross-validation-function-for-logistic-regression-in-r
+
+Mathew Analytics. Evaluating Logistic Regression Models | R-bloggers.Available at:
+https://www.r-bloggers.com/evaluating-logistic-regression-models/
+
+CRAN Task View: Machine Learning & Statistical Learning.Available at:
+[https://cran.r-project.org/web/views/MachineLearning.html]
+
+ConfusionMatrix: Create a confusion matrix in caret: Classification and Regression Training.Available at:
+[https://rdrr.io/cran/caret/man/confusionMatrix.html]
+
+Lateef, Zulaikha. A Complete Guide On KNN Algorithm In R With Examples | Edureka. Available at:
+[https://www.edureka.co/blog/knn-algorithm-in-r/]
+
+Kabacoff, Robert I. Ph.D. Quick-R: Tree-Based Models.Available at:
+[https://www.statmethods.net/advstats/cart.html]
+
+Campos, Fábio Rocha. RPubs - Decision Tree Model to Bank Marketing dataset
+https://rpubs.com/fabiorocha5150/decisiontreemodel
